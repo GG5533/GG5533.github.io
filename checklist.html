@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10 ways your AI feature breaks in production</title>
+<meta name="description" content="A production-readiness checklist for AI features. Ten failure modes, how to check each one in your own codebase, and what the fix looks like. Free, no signup.">
+<meta property="og:title" content="10 ways your AI feature breaks in production">
+<meta property="og:description" content="Ten failure modes, how to check each one yourself, and what the fix looks like. Free, no signup.">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#0C1116; --panel:#141B23; --line:#232E39;
+    --fg:#E8EDF2; --fg-dim:#94A3B1; --fg-faint:#5F6E7C;
+    --ok:#3FBF87; --warn:#E8A33D; --crit:#E8654D;
+    --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--fg);font-family:var(--sans);
+       font-size:17px;line-height:1.68;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:0 1.5rem}
+  a{color:var(--warn)}
+  .back{display:inline-block;font-family:var(--mono);font-size:.78rem;
+        color:var(--fg-faint);text-decoration:none;margin:2.5rem 0 0}
+  .back:hover{color:var(--warn)}
+
+  header{padding:2.5rem 0 3rem;border-bottom:1px solid var(--line)}
+  h1{font-size:clamp(2rem,5.5vw,3rem);line-height:1.08;letter-spacing:-.03em;
+     font-weight:700;margin:0 0 1.25rem;text-wrap:balance}
+  .lede{font-size:1.1rem;color:var(--fg-dim);margin:0 0 1.5rem}
+  .meta{font-family:var(--mono);font-size:.75rem;color:var(--fg-faint)}
+
+  .item{padding:2.75rem 0;border-bottom:1px solid var(--line)}
+  .num{font-family:var(--mono);font-size:.72rem;font-weight:600;
+       letter-spacing:.1em;color:var(--warn);margin-bottom:.6rem}
+  h2{font-size:1.4rem;letter-spacing:-.02em;font-weight:600;margin:0 0 1rem;
+     text-wrap:balance}
+  .label{font-family:var(--mono);font-size:.68rem;letter-spacing:.09em;
+         text-transform:uppercase;color:var(--fg-faint);
+         margin:1.35rem 0 .4rem;display:block}
+  p{margin:0 0 .9rem}
+  p:last-child{margin-bottom:0}
+  code{font-family:var(--mono);font-size:.86em;background:var(--panel);
+       padding:.12em .38em;border-radius:3px;color:var(--fg)}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:5px;
+      padding:.9rem 1.1rem;overflow-x:auto;margin:.5rem 0 0}
+  pre code{background:none;padding:0;font-size:.8rem;line-height:1.6;
+           color:var(--fg-dim)}
+  .flag{background:var(--panel);border-left:2px solid var(--crit);
+        border-radius:0 5px 5px 0;padding:.9rem 1.15rem;margin:1.1rem 0 0;
+        font-size:.94rem;color:var(--fg-dim)}
+  .flag b{color:var(--fg)}
+
+  .end{padding:3rem 0 1rem}
+  .end h2{font-size:1.5rem}
+  .cta{display:inline-block;background:var(--warn);color:#12171C;font-weight:700;
+       text-decoration:none;padding:.85rem 1.5rem;border-radius:5px;margin-top:.5rem}
+  .cta:hover{filter:brightness(1.08)}
+  footer{padding:2.5rem 0 4rem;font-family:var(--mono);font-size:.8rem;
+         color:var(--fg-faint);border-top:1px solid var(--line);margin-top:2.5rem}
+  footer a{text-decoration:none}
+  a:focus-visible{outline:2px solid var(--warn);outline-offset:3px;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="back" href="/">← gg5533.github.io</a>
+
+  <header>
+    <h1>10 ways your AI feature breaks in production</h1>
+    <p class="lede">
+      Not model quality — the plumbing around it. These are the failures that
+      pass every test and then appear the week after launch. For each: how to
+      check it in your own codebase, and what the fix looks like.
+    </p>
+    <p class="meta">Free · no signup · September 2026</p>
+  </header>
+
+  <div class="item">
+    <div class="num">01 — CRITICAL</div>
+    <h2>Silent regression</h2>
+    <p>A prompt tweak, a model version bump, or a retrieval change quietly degrades output. Nobody notices until users complain — and by then you can't tell which change did it.</p>
+    <p><b>This is now the dominant cause of production LLM incidents</b>, having displaced prompt injection in mature deployments. One documented case: a support agent's groundedness fell 11 points over 18 minutes, traced to a prompt template stitching in an empty retrieval block.</p>
+    <span class="label">Check it</span>
+    <p>Is there <em>any</em> test that runs the AI path with fixed inputs and asserts something about the output? Not "does it return 200" — something about the content. If the answer is no, you are shipping prompt changes blind.</p>
+    <span class="label">Fix</span>
+    <p>A small set of golden cases in CI. Ten fixed inputs with asserted properties beats zero by an enormous margin. You are not trying to measure quality — you are trying to notice a cliff.</p>
+  </div>
+
+  <div class="item">
+    <div class="num">02 — CRITICAL</div>
+    <h2>Retries that cause double effects</h2>
+    <p>The same request arrives twice — a client retry, a webhook redelivery, a queue redrive — and something happens twice. A charge, an email, a credit deducted, a row inserted.</p>
+    <span class="label">Check it</span>
+    <pre><code>grep -rn "webhook\|/callback\|retry\|idempot" --include=*.ts --include=*.py</code></pre>
+    <p>For each handler, ask of every side effect: is this keyed on something stable? Look for an idempotency key, a unique constraint, or an upsert. A bare <code>INSERT</code>, or a call to a payment or email API with no key, is the bug.</p>
+    <span class="label">Fix</span>
+    <p>A unique key on the operation, checked inside the same transaction as the write. Not checked before the write — inside it, or the race just moves.</p>
+    <div class="flag"><b>Subtle version:</b> a lock or lease is not enough on its own. If a slow call outlives its lease, it can still write its result on top of the attempt that replaced it. That needs a fencing token — <a href="https://github.com/GG5533/stripe-fulfilment-kit/blob/main/CASE-STUDY.md">worked example, including why 78 tests missed it</a>.</div>
+  </div>
+
+  <div class="item">
+    <div class="num">03 — CRITICAL</div>
+    <h2>Uncapped spend</h2>
+    <p>No ceiling per user, per session, or globally. One retry loop, one enthusiastic user, or one bad actor and the bill is four figures by morning. Almost nobody has this on launch day.</p>
+    <span class="label">Check it</span>
+    <p>Find any spend or token budget enforced <em>before</em> a call is made. Then compute the worst case out loud: how many calls can one user trigger in an hour, at what token count, at current pricing? That number is usually the moment the room goes quiet.</p>
+    <span class="label">Fix</span>
+    <p>A budget per request and per user per period, checked before the call rather than measured after. Metering is not a cap.</p>
+  </div>
+
+  <div class="item">
+    <div class="num">04 — HIGH</div>
+    <h2>No deadline on provider calls</h2>
+    <p>The model takes 60 seconds. The request hangs, the worker is tied up, and under load the pool exhausts and unrelated parts of your service start failing too.</p>
+    <span class="label">Check it</span>
+    <p>Look at every LLM client construction. Is a timeout set? Most SDKs default to none, or to something far longer than you'd choose. Then check it against the caller's deadline — a 120s client timeout behind a 30s gateway is the same as no timeout, except now you also can't see it.</p>
+    <span class="label">Fix</span>
+    <p>An explicit deadline per call, shorter than the caller's, with defined behaviour on expiry. Fail fast, don't hang.</p>
+  </div>
+
+  <div class="item">
+    <div class="num">05 — HIGH</div>
+    <h2>No fallback when the provider fails</h2>
+    <p>Rate limit or outage, and the feature just breaks. This is not hypothetical: OpenAI had a service disruption in February 2026 and a global outage in April 2026 that took down ChatGPT, Codex and API access together.</p>
+    <span class="label">Check it</span>
+    <p>Read the error handling around model calls. Is there backoff? A second provider? A cheaper or cached path? A user-facing message that isn't a stack trace?</p>
+    <div class="flag"><b>The distinction that matters:</b> retrying a rate limit is correct. Retrying a malformed request forever turns one error into thousands and can get you rate-limited on top. Classify errors as retryable or terminal before you retry anything.</div>
+    <span class="label">Fix</span>
+    <p>Error classification, backoff with jitter on the retryable kind, clean failure on the rest.</p>
+  </div>
+
+  <div class="item">
+    <div class="num">06 — HIGH</div>
+    <h2>Unbounded agent loops</h2>
+    <p>Tool calls tool, model re-plans, repeat. Cost and latency both without a ceiling, and the failure mode is a bill rather than an error.</p>
+    <span class="label">Check it</span>
+    <p>Find the agent loop. Is there a bound on turns, on total tokens, and on wall-clock time? All three, not one. Is there detection for the same tool being called with the same arguments repeatedly?</p>
+    <span class="label">Fix</span>
+    <p>Hard caps on all three axes and a defined behaviour when one is hit — return a partial result with the reason, rather than truncating silently.</p>
+  </div>
+
+  <div class="item">
+    <div class="num">07 — HIGH</div>
+    <h2>Half-written state after a crash</h2>
+    <p>The process dies between the external call and the database write. Now the record says one thing and reality says another: paid but not fulfilled, charged but not delivered, started and stuck forever.</p>
+    <span class="label">Check it</span>
+    <p>Find every multi-step operation that touches an external service and your own storage. Ask: if the process is killed between step two and step three, what does the record look like, and can anything recover it?</p>
+    <span class="label">Fix</span>
+    <p>Durable state with explicit statuses, and claims that are leased so a crashed attempt can be retried — and fenced so a slow one can't overwrite the attempt that replaced it.</p>
+  </div>
+
+  <div class="item">
+    <div class="num">08 — HIGH</div>
+    <h2>Truncated output saved as complete</h2>
+    <p>The connection drops mid-stream. The partial answer is persisted and presented to the user as finished — often with no visible difference.</p>
+    <span class="label">Check it</span>
+    <p>Find where streamed output is written. Is it saved on a clean terminal event, or accumulated and stored regardless of how the stream ended? Is there a "complete" flag distinct from "has content"?</p>
+    <span class="label">Fix</span>
+    <p>Only mark complete on a clean finish. Store partials as partial and let the UI say so.</p>
+  </div>
+
+  <div class="item">
+    <div class="num">09 — MEDIUM</div>
+    <h2>Untrusted input reaching tools with real permissions</h2>
+    <p>A user upload, a scraped page, an email body reaches a model that can send mail, write to the database, or spend money.</p>
+    <span class="label">Check it</span>
+    <p>Trace every input that reaches a prompt and mark which are attacker-controlled. Then list what the model can actually <em>do</em>. The intersection is your surface.</p>
+    <div class="flag"><b>Frame this as blast radius, not prevention.</b> You will not out-prompt a determined attacker. The useful question is what the tool can do when it is wrong, and the useful fix is making that less.</div>
+    <span class="label">Fix</span>
+    <p>Least-privilege tools, explicit confirmation for irreversible actions, and treating model output as untrusted input to whatever consumes it next.</p>
+  </div>
+
+  <div class="item">
+    <div class="num">10 — MEDIUM</div>
+    <h2>You find out from the customer</h2>
+    <p>It breaks at 3am and the log line says <code>Error: request failed</code>. Nobody can answer which user, which prompt, which provider, how long it took, or what it cost.</p>
+    <span class="label">Check it</span>
+    <p>Read your catch blocks around model calls. Then ask the question that decides it: <em>when this misbehaves, who notices first — you, or the customer?</em> If it's the customer, this is your first finding regardless of what else is wrong.</p>
+    <span class="label">Fix</span>
+    <p>Structured logs with a correlation id on every model call — user, model, latency, tokens, cost — and one alert on the failure that costs money.</p>
+  </div>
+
+  <div class="end">
+    <h2>If you'd rather not do this yourself</h2>
+    <p>I run this as a two-day audit for $500 and send you a written report: what breaks, the exact sequence that triggers it, what it costs, and hours to fix. You keep the report whether or not you hire me for the fix — and if I don't find anything worth paying to fix, I'll tell you that too.</p>
+    <a class="cta" href="mailto:samihabbal5@icloud.com?subject=AI%20Production%20Audit">Book an audit — $500</a>
+  </div>
+
+  <footer>
+    Sami Habbal ·
+    <a href="mailto:samihabbal5@icloud.com">samihabbal5@icloud.com</a> ·
+    <a href="https://github.com/GG5533">github.com/GG5533</a> ·
+    <a href="/">gg5533.github.io</a>
+  </footer>
+
+</div>
+</body>
+</html>
