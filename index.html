@@ -187,12 +187,13 @@
     </p>
 
     <blockquote>
-      <b>The bug I'm most known for is one I wrote myself.</b> A lease that passed
-      78 tests and was still wrong: a provider call that outlived its two-minute
-      lease wrote its failure over a completed order — hiding a product the
-      customer had paid for, and re-opening the order for a third charge. Every
-      test settled an order from its <i>current</i> owner, so none covered a write
-      from a superseded one.
+      <b>The bug I'm most known for is one I wrote myself — and caught before it
+      shipped.</b> A lease that passed 78 tests and was still wrong: a provider
+      call outliving its two-minute lease would have written its failure over a
+      completed order, hiding a paid-for product and re-opening the order for a
+      third charge. Every test settled an order from its <i>current</i> owner, so
+      none covered a write from a superseded one. Found in cross-model review,
+      reproduced in a test, fixed before it ever ran in production.
     </blockquote>
 
     <div class="proof" style="margin-top:1.25rem">
@@ -211,7 +212,7 @@
       <a class="card" href="https://github.com/GG5533/ai-review-gate">
         <div class="k">Open source</div>
         <h3>ai-review-gate</h3>
-        <p>Two models review a coding agent's output and block it before it ships. Includes an honest record of the eight real errors it caught.</p>
+        <p>Two models review a coding agent's output and block the turn if it's wrong, forcing a correction. Includes an honest record of the eight real errors it caught.</p>
         <div class="meta">Guardrails for agents · MIT →</div>
       </a>
       <a class="card" href="https://github.com/GG5533">
