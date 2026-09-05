@@ -101,6 +101,7 @@
     <p>For each handler, ask of every side effect: is this keyed on something stable? Look for an idempotency key, a unique constraint, or an upsert. A bare <code>INSERT</code>, or a call to a payment or email API with no key, is the bug.</p>
     <span class="label">Fix</span>
     <p>A unique key on the operation, checked inside the same transaction as the write. Not checked before the write — inside it, or the race just moves.</p>
+    <p><b>Be honest about the limit:</b> that makes your own state exactly-once. It does not make an external call exactly-once — if the provider charged before your process died, no amount of local fencing un-charges it. What good design buys you is that the duplicate becomes <i>detectable and reconcilable</i> rather than silent. Anyone selling you exactly-once across a network boundary is overselling.</p>
     <div class="flag"><b>Subtle version:</b> a lock or lease is not enough on its own. If a slow call outlives its lease, it can still write its result on top of the attempt that replaced it. That needs a fencing token — <a href="https://github.com/GG5533/stripe-fulfilment-kit/blob/main/CASE-STUDY.md">worked example, including why 78 tests missed it</a>.</div>
   </div>
 
@@ -187,9 +188,10 @@
   </div>
 
   <div class="end">
-    <h2>If you'd rather not do this yourself</h2>
-    <p>I run this as a two-day audit for $500 and send you a written report: what breaks, the exact sequence that triggers it, what it costs, and hours to fix. You keep the report whether or not you hire me for the fix — and if I don't find anything worth paying to fix, I'll tell you that too.</p>
-    <a class="cta" href="mailto:samihabbal5@icloud.com?subject=AI%20Production%20Audit">Book an audit — $500</a>
+    <h2>Found one of these in your own code?</h2>
+    <p>Send it to me. <b>$250, fixed price:</b> I reproduce it, fix it, and hand back a regression test that fails without the fix, plus a written account of what was actually wrong. Half up front, and if I can't reproduce it you pay nothing and keep the write-up of what I ruled out.</p>
+    <p>If you'd rather have the whole feature reviewed against all ten before committing to anything, I do that as a two-day written audit for $500 — credited against the fix if you go ahead.</p>
+    <a class="cta" href="mailto:samihabbal5@icloud.com?subject=One%20bug%2C%20fixed%20price">Fix one bug — $250, fixed price</a>
   </div>
 
   <footer>
