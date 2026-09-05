@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sami Habbal — AI systems that survive production</title>
+<meta name="description" content="I fix the failures that only appear once real traffic hits an AI feature: retries that double-charge, timeouts with no deadline, agent loops with no ceiling, AI spend with no cap.">
+<meta property="og:title" content="Sami Habbal — AI systems that survive production">
+<meta property="og:description" content="Retries that double-charge. Timeouts with no deadline. Agent loops with no ceiling. Two-day audit, fixed price.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#0C1116; --panel:#141B23; --line:#232E39;
+    --fg:#E8EDF2; --fg-dim:#94A3B1; --fg-faint:#5F6E7C;
+    --ok:#3FBF87; --warn:#E8A33D; --crit:#E8654D;
+    --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--ink);color:var(--fg);
+    font-family:var(--sans);font-size:17px;line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 1.5rem}
+  a{color:inherit}
+  section{padding:4rem 0;border-top:1px solid var(--line)}
+  section:first-of-type{border-top:0}
+
+  /* ---------- hero ---------- */
+  .hero{padding:5.5rem 0 4rem}
+  .status{
+    display:inline-flex;align-items:center;gap:.55rem;
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ok);
+    border:1px solid var(--line);border-radius:100px;
+    padding:.4rem .85rem;margin-bottom:1.75rem;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);
+       box-shadow:0 0 0 3px rgba(63,191,135,.15)}
+  h1{
+    font-size:clamp(2.1rem,6vw,3.6rem);line-height:1.05;
+    letter-spacing:-.03em;font-weight:700;margin:0 0 1.5rem;
+    text-wrap:balance;max-width:16ch;
+  }
+  .lede{font-size:clamp(1.05rem,2.4vw,1.25rem);color:var(--fg-dim);
+        max-width:60ch;margin:0 0 2.25rem}
+  .lede strong{color:var(--fg);font-weight:600}
+  .cta{
+    display:inline-block;background:var(--warn);color:#12171C;
+    font-weight:700;font-size:1rem;text-decoration:none;
+    padding:.9rem 1.6rem;border-radius:5px;
+    transition:transform .12s ease,filter .12s ease;
+  }
+  .cta:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .cta-note{font-family:var(--mono);font-size:.78rem;color:var(--fg-faint);
+            margin-top:.9rem}
+
+  h2{font-size:clamp(1.35rem,3vw,1.75rem);letter-spacing:-.02em;
+     font-weight:600;margin:0 0 .6rem;text-wrap:balance}
+  .sub{color:var(--fg-dim);margin:0 0 2rem;max-width:62ch}
+
+  /* ---------- failure list ---------- */
+  .fails{display:grid;gap:1px;background:var(--line);
+         border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .fail{background:var(--panel);padding:1.15rem 1.35rem;
+        display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start}
+  .sev{font-family:var(--mono);font-size:.65rem;font-weight:600;
+       letter-spacing:.08em;padding:.25rem .5rem;border-radius:3px;
+       white-space:nowrap;margin-top:.15rem}
+  .s-crit{background:rgba(232,101,77,.14);color:var(--crit)}
+  .s-warn{background:rgba(232,163,61,.14);color:var(--warn)}
+  .fail b{display:block;font-weight:600;margin-bottom:.15rem}
+  .fail span{color:var(--fg-dim);font-size:.94rem}
+
+  /* ---------- offer ---------- */
+  .offers{display:grid;gap:1rem;grid-template-columns:1fr}
+  @media(min-width:760px){.offers{grid-template-columns:repeat(3,1fr)}}
+  .offer{background:var(--panel);border:1px solid var(--line);
+         border-radius:6px;padding:1.5rem;display:flex;flex-direction:column}
+  .offer.lead{border-color:var(--warn)}
+  .offer .tag{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;
+              text-transform:uppercase;color:var(--fg-faint);margin-bottom:.7rem}
+  .offer.lead .tag{color:var(--warn)}
+  .offer h3{font-size:1.1rem;margin:0 0 .3rem;font-weight:600}
+  .price{font-family:var(--mono);font-size:1.3rem;font-weight:600;
+         margin:0 0 .8rem;color:var(--fg)}
+  .offer p{margin:0;color:var(--fg-dim);font-size:.93rem}
+
+  /* ---------- proof ---------- */
+  .proof{display:grid;gap:1rem;grid-template-columns:1fr}
+  @media(min-width:700px){.proof{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;
+        padding:1.4rem;text-decoration:none;display:block;
+        transition:border-color .15s ease}
+  .card:hover{border-color:var(--fg-faint)}
+  .card .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.09em;
+           text-transform:uppercase;color:var(--warn);margin-bottom:.5rem}
+  .card h3{margin:0 0 .45rem;font-size:1.02rem;font-weight:600}
+  .card p{margin:0;color:var(--fg-dim);font-size:.9rem}
+  .card .meta{font-family:var(--mono);font-size:.72rem;color:var(--fg-faint);
+              margin-top:.8rem}
+
+  blockquote{margin:0;padding:1.35rem 1.5rem;background:var(--panel);
+             border-left:2px solid var(--crit);border-radius:0 6px 6px 0;
+             color:var(--fg-dim);font-size:.97rem}
+  blockquote b{color:var(--fg)}
+
+  ol.how{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:1rem}
+  ol.how li{counter-increment:s;display:grid;grid-template-columns:auto 1fr;
+            gap:1rem;align-items:start}
+  ol.how li::before{content:counter(s);font-family:var(--mono);font-size:.78rem;
+    font-weight:600;color:var(--warn);border:1px solid var(--line);
+    width:1.9rem;height:1.9rem;display:grid;place-items:center;border-radius:4px}
+  ol.how b{display:block;font-weight:600}
+  ol.how span{color:var(--fg-dim);font-size:.94rem}
+
+  footer{padding:3.5rem 0 4.5rem;border-top:1px solid var(--line);
+         font-family:var(--mono);font-size:.82rem;color:var(--fg-faint)}
+  footer a{color:var(--warn);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  a:focus-visible,.cta:focus-visible{outline:2px solid var(--warn);
+    outline-offset:3px;border-radius:3px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="status"><span class="dot"></span>Available for contract work</div>
+    <h1>AI systems that survive production</h1>
+    <p class="lede">
+      Your AI feature works in testing. Then real traffic arrives and it
+      <strong>retries a request and charges twice</strong>, <strong>hangs with no
+      deadline</strong>, <strong>loops without a ceiling</strong>, or quietly runs
+      up a bill nobody capped. I find those before your customers do.
+    </p>
+    <a class="cta" href="mailto:samihabbal5@icloud.com?subject=AI%20Production%20Audit">Book a production audit — $500</a>
+    <div class="cta-note">Two days · written report · fixed price · no code changes</div>
+  </header>
+
+  <section>
+    <h2>What actually breaks</h2>
+    <p class="sub">
+      Not model quality. The plumbing around it — the same failure classes as any
+      distributed system, wearing an AI hat.
+    </p>
+    <div class="fails">
+      <div class="fail"><span class="sev s-crit">CRITICAL</span><div>
+        <b>Silent regression</b><span>A prompt or model change quietly degrades output and nobody knows until users complain. Now the dominant cause of production LLM incidents.</span></div></div>
+      <div class="fail"><span class="sev s-crit">CRITICAL</span><div>
+        <b>Retry double-effects</b><span>The same request arrives twice and something happens twice — a charge, an email, a credit deducted.</span></div></div>
+      <div class="fail"><span class="sev s-crit">CRITICAL</span><div>
+        <b>Uncapped spend</b><span>No ceiling per user or per session. One loop, one bad actor, and the bill is four figures by morning.</span></div></div>
+      <div class="fail"><span class="sev s-warn">HIGH</span><div>
+        <b>No deadline on provider calls</b><span>The model takes 60 seconds, the worker is tied up, and under load the pool exhausts and everything stalls.</span></div></div>
+      <div class="fail"><span class="sev s-warn">HIGH</span><div>
+        <b>No fallback</b><span>Provider rate-limits or goes down — and it does — and the feature simply breaks instead of degrading.</span></div></div>
+      <div class="fail"><span class="sev s-warn">HIGH</span><div>
+        <b>Unbounded agent loops</b><span>Tool calls tool, model re-plans, forever. Cost and latency both without a ceiling.</span></div></div>
+      <div class="fail"><span class="sev s-warn">HIGH</span><div>
+        <b>Half-written state</b><span>Process dies mid-operation. Paid but not fulfilled, charged but not delivered, stuck with no way to recover.</span></div></div>
+      <div class="fail"><span class="sev s-warn">HIGH</span><div>
+        <b>Truncated output saved as complete</b><span>Connection drops mid-stream and the partial answer is stored as if it finished.</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <ol class="how">
+      <li><div><b>Audit — two days, $500</b><span>I review one AI feature against ten production failure modes and send you a written report: what breaks, the exact sequence that triggers it, what it costs, and hours to fix. You keep the report whether or not you hire me for the fix.</span></div></li>
+      <li><div><b>Fix — fixed price, agreed up front</b><span>I fix the findings that matter most. Everything ships with regression tests that prove the failure cannot recur, plus a written account of what was wrong.</span></div></li>
+      <li><div><b>Stay — fractional, ongoing</b><span>For teams shipping AI features faster than they can make them reliable. I own that part so your engineers don't context-switch into it.</span></div></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Proof, not adjectives</h2>
+    <p class="sub">
+      Everything below is public and readable. Judge the work rather than the claims.
+    </p>
+
+    <blockquote>
+      <b>The bug I'm most known for is one I wrote myself.</b> A lease that passed
+      78 tests and was still wrong: a provider call that outlived its two-minute
+      lease wrote its failure over a completed order — hiding a product the
+      customer had paid for, and re-opening the order for a third charge. Every
+      test settled an order from its <i>current</i> owner, so none covered a write
+      from a superseded one.
+    </blockquote>
+
+    <div class="proof" style="margin-top:1.25rem">
+      <a class="card" href="https://github.com/GG5533/stripe-fulfilment-kit/blob/main/CASE-STUDY.md">
+        <div class="k">Case study</div>
+        <h3>How 78 tests missed a fencing bug</h3>
+        <p>The failure, why the test suite couldn't see it, the fix, and the general lesson for any lock or lease.</p>
+        <div class="meta">Full write-up →</div>
+      </a>
+      <a class="card" href="https://github.com/GG5533/stripe-fulfilment-kit">
+        <div class="k">Open source</div>
+        <h3>stripe-fulfilment-kit</h3>
+        <p>Fenced, leased order claims that survive retries, crashes and concurrent webhook deliveries. Cross-process atomic.</p>
+        <div class="meta">59 tests · offline · MIT →</div>
+      </a>
+      <a class="card" href="https://github.com/GG5533/ai-review-gate">
+        <div class="k">Open source</div>
+        <h3>ai-review-gate</h3>
+        <p>Two models review a coding agent's output and block it before it ships. Includes an honest record of the eight real errors it caught.</p>
+        <div class="meta">Guardrails for agents · MIT →</div>
+      </a>
+      <a class="card" href="https://github.com/GG5533">
+        <div class="k">More</div>
+        <h3>github.com/GG5533</h3>
+        <p>Everything else, including the quant work.</p>
+        <div class="meta">Profile →</div>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Worth knowing before you email</h2>
+    <p class="sub">
+      If I don't think you have a problem worth paying to fix, I'll tell you and
+      you'll have spent nothing. The audit is deliberately cheap because it should
+      be an easy decision — and because an audit that finds nothing is still a
+      useful answer.
+    </p>
+    <a class="cta" href="mailto:samihabbal5@icloud.com?subject=AI%20Production%20Audit">Book a production audit — $500</a>
+    <div class="cta-note">Or just describe what's breaking. samihabbal5@icloud.com</div>
+  </section>
+
+  <footer>
+    Sami Habbal ·
+    <a href="mailto:samihabbal5@icloud.com">samihabbal5@icloud.com</a> ·
+    <a href="https://github.com/GG5533">github.com/GG5533</a>
+  </footer>
+
+</div>
+</body>
+</html>
