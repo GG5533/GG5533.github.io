@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://gg5533.github.io/sitemap.xml
