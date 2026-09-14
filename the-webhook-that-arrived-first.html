@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The webhook that arrived before the one it depended on — Sami Habbal</title>
+<meta name="description" content="Stripe does not promise to deliver events in order. A handler that decides from the event's type ships goods for payments that have not settled, and ships them again when the payment does. The reproduction, the mechanism, the fix, and five checks.">
+<meta property="og:title" content="The webhook that arrived before the one it depended on">
+<meta property="og:description" content="Stripe does not promise to deliver events in order. A handler that decides from the event's type ships goods for payments that have not settled, and ships them again when the payment does. The reproduction, the mechanism, the fix, and five checks.">
+<meta property="og:type" content="article">
+<meta property="article:published_time" content="2026-09-14">
+<meta property="article:author" content="Sami Habbal">
+<link rel="canonical" href="https://gg5533.github.io/the-webhook-that-arrived-first.html">
+<meta property="og:url" content="https://gg5533.github.io/the-webhook-that-arrived-first.html">
+<meta property="og:site_name" content="Sami Habbal">
+<meta name="author" content="Sami Habbal">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --ink:#0C1116; --panel:#141B23; --line:#232E39;
+    --fg:#E8EDF2; --fg-dim:#94A3B1; --fg-faint:#5F6E7C;
+    --ok:#3FBF87; --warn:#E8A33D; --crit:#E8654D;
+    --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--ink);color:var(--fg);
+    font-family:var(--sans);font-size:17px;line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 1.5rem}
+  a{color:inherit}
+  section{padding:4rem 0;border-top:1px solid var(--line)}
+  section:first-of-type{border-top:0}
+
+  /* ---------- hero ---------- */
+  .hero{padding:5.5rem 0 4rem}
+  .status{
+    display:inline-flex;align-items:center;gap:.55rem;
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ok);
+    border:1px solid var(--line);border-radius:100px;
+    padding:.4rem .85rem;margin-bottom:1.75rem;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);
+       box-shadow:0 0 0 3px rgba(63,191,135,.15)}
+  h1{
+    font-size:clamp(2.1rem,6vw,3.6rem);line-height:1.05;
+    letter-spacing:-.03em;font-weight:700;margin:0 0 1.5rem;
+    text-wrap:balance;max-width:16ch;
+  }
+  .lede{font-size:clamp(1.05rem,2.4vw,1.25rem);color:var(--fg-dim);
+        max-width:60ch;margin:0 0 2.25rem}
+  .lede strong{color:var(--fg);font-weight:600}
+  .cta{
+    display:inline-block;background:var(--warn);color:#12171C;
+    font-weight:700;font-size:1rem;text-decoration:none;
+    padding:.9rem 1.6rem;border-radius:5px;
+    transition:transform .12s ease,filter .12s ease;
+  }
+  .cta:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .cta-note{font-family:var(--mono);font-size:.78rem;color:var(--fg-faint);
+            margin-top:.9rem}
+
+  h2{font-size:clamp(1.35rem,3vw,1.75rem);letter-spacing:-.02em;
+     font-weight:600;margin:0 0 .6rem;text-wrap:balance}
+  .sub{color:var(--fg-dim);margin:0 0 2rem;max-width:62ch}
+
+  /* ---------- failure list ---------- */
+  .fails{display:grid;gap:1px;background:var(--line);
+         border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .fail{background:var(--panel);padding:1.15rem 1.35rem;
+        display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start}
+  .sev{font-family:var(--mono);font-size:.65rem;font-weight:600;
+       letter-spacing:.08em;padding:.25rem .5rem;border-radius:3px;
+       white-space:nowrap;margin-top:.15rem}
+  .s-crit{background:rgba(232,101,77,.14);color:var(--crit)}
+  .s-warn{background:rgba(232,163,61,.14);color:var(--warn)}
+  .fail b{display:block;font-weight:600;margin-bottom:.15rem}
+  .fail span{color:var(--fg-dim);font-size:.94rem}
+
+  /* ---------- offer ---------- */
+  .offers{display:grid;gap:1rem;grid-template-columns:1fr}
+  @media(min-width:760px){.offers{grid-template-columns:repeat(3,1fr)}}
+  .offer{background:var(--panel);border:1px solid var(--line);
+         border-radius:6px;padding:1.5rem;display:flex;flex-direction:column}
+  .offer.lead{border-color:var(--warn)}
+  .offer .tag{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;
+              text-transform:uppercase;color:var(--fg-faint);margin-bottom:.7rem}
+  .offer.lead .tag{color:var(--warn)}
+  .offer h3{font-size:1.1rem;margin:0 0 .3rem;font-weight:600}
+  .price{font-family:var(--mono);font-size:1.3rem;font-weight:600;
+         margin:0 0 .8rem;color:var(--fg)}
+  .offer p{margin:0;color:var(--fg-dim);font-size:.93rem}
+
+  /* ---------- proof ---------- */
+  .proof{display:grid;gap:1rem;grid-template-columns:1fr}
+  @media(min-width:700px){.proof{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;
+        padding:1.4rem;text-decoration:none;display:block;
+        transition:border-color .15s ease}
+  .card:hover{border-color:var(--fg-faint)}
+  .card .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.09em;
+           text-transform:uppercase;color:var(--warn);margin-bottom:.5rem}
+  .card h3{margin:0 0 .45rem;font-size:1.02rem;font-weight:600}
+  .card p{margin:0;color:var(--fg-dim);font-size:.9rem}
+  .card .meta{font-family:var(--mono);font-size:.72rem;color:var(--fg-faint);
+              margin-top:.8rem}
+
+  blockquote{margin:0;padding:1.35rem 1.5rem;background:var(--panel);
+             border-left:2px solid var(--crit);border-radius:0 6px 6px 0;
+             color:var(--fg-dim);font-size:.97rem}
+  blockquote b{color:var(--fg)}
+
+  ol.how{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:1rem}
+  ol.how li{counter-increment:s;display:grid;grid-template-columns:auto 1fr;
+            gap:1rem;align-items:start}
+  ol.how li::before{content:counter(s);font-family:var(--mono);font-size:.78rem;
+    font-weight:600;color:var(--warn);border:1px solid var(--line);
+    width:1.9rem;height:1.9rem;display:grid;place-items:center;border-radius:4px}
+  ol.how b{display:block;font-weight:600}
+  ol.how span{color:var(--fg-dim);font-size:.94rem}
+
+  footer{padding:3.5rem 0 4.5rem;border-top:1px solid var(--line);
+         font-family:var(--mono);font-size:.82rem;color:var(--fg-faint)}
+  footer a{color:var(--warn);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  a:focus-visible,.cta:focus-visible{outline:2px solid var(--warn);
+    outline-offset:3px;border-radius:3px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>
+  article{max-width:72ch;margin:0 auto;padding:3.5rem 0 1rem}
+  article h1{max-width:none;font-size:clamp(1.9rem,5vw,2.9rem);margin-bottom:.6rem}
+  .subtitle{color:var(--fg-dim);font-size:1.12rem;margin:0 0 2.2rem;max-width:60ch}
+  .byline{font-family:var(--mono);font-size:.78rem;color:var(--fg-faint);margin-bottom:2.5rem}
+  article h2{margin-top:2.6rem}
+  article p{margin:0 0 1.1rem}
+  article a{color:var(--warn);text-decoration:none}
+  article a:hover{text-decoration:underline}
+  article code{font-family:var(--mono);font-size:.88em;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:.08em .35em}
+  article pre{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1rem 1.15rem;overflow-x:auto;font-size:.78rem;line-height:1.5;margin:0 0 1.3rem}
+  article pre code{background:none;border:0;padding:0;font-size:inherit}
+  article ul,article ol{padding-left:1.4rem;margin:0 0 1.2rem}
+  article li{margin-bottom:.45rem}
+  .tw{overflow-x:auto;margin:0 0 1.3rem;border:1px solid var(--line);border-radius:6px}
+  article table{border-collapse:collapse;width:100%;font-size:.9rem;background:var(--panel)}
+  article th,article td{text-align:left;padding:.6rem .8rem;border-bottom:1px solid var(--line);vertical-align:top}
+  article th{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-faint)}
+  article tbody tr:last-child td{border-bottom:0}
+  .back{font-family:var(--mono);font-size:.78rem;color:var(--fg-faint);padding:0 0 2rem}
+  .back a{color:var(--warn);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<article>
+  <div class="back"><a href="/">← Sami Habbal</a></div>
+  <h1>The webhook that arrived before the one it depended on</h1>
+  <p class="subtitle">Stripe does not promise to deliver events in order. A handler that decides from the event's type ships goods for payments that have not settled, and ships them again when the payment does.</p>
+  <div class="byline">Sami Habbal · 14 September 2026 · Charlotte, NC</div>
+<p>The idempotency advice everyone follows is about duplicates: store the event id, skip the event if you have seen it. It is correct, and it is aimed at the wrong failure for the case in this piece. The two events below are not duplicates. They have different ids and different types, and they describe the same order at two moments in time. Nothing in an idempotency store stops a handler from acting on both, and the order they arrive in is not up to you.</p>
+<h2>The setup</h2>
+<p>A Checkout session finishes. For a card payment, one event carries the news: <code>checkout.session.completed</code>, with <code>payment_status</code> already <code>paid</code>. For the payment methods that settle later, bank debits and vouchers among them, the same event fires when the customer finishes checkout with <code>payment_status</code> still <code>unpaid</code>. The money arrives hours or days later, and Stripe then sends <code>checkout.session.async_payment_succeeded</code>, or <code>async_payment_failed</code> if it never does.</p>
+<p>Stripe's documentation says two things about this that are easy to read past. Delivery order is not guaranteed. And the completed event is not a promise of payment; the fulfilment guide says to check <code>payment_status</code>. Most handlers were written against a card-only test account where the first event always says paid, and never meet the second shape until a customer pays by bank debit.</p>
+<p>Here is the handler most people ship, reduced to what matters. It is the naive example in second-run:</p>
+<pre><code>export default function build({ provider, crashOnce, state }) {
+  const done = new Set();
+  const orders = new Map();
+  // ...
+  return async function handle(event) {
+    if (done.has(event.id)) return { kind: "duplicate" };
+    const r = await provider.fulfil(event.orderId);          // the expensive part
+    orders.set(event.orderId, { status: "provisioned", r });
+    done.add(event.id);
+    return { kind: "provisioned" };
+  };
+}</code></pre>
+<p>It has the idempotency check. It fulfils on every event it has not seen. It never asks whether the payment settled.</p>
+<h2>The failure, in both directions</h2>
+<p>The out-of-order scenario in second-run plays two orders through the handler. The first order gets its events in the order Stripe intends. The second gets them reversed, which Stripe also permits.</p>
+<pre><code>// Phase A: the unpaid completed event arrives first. Nothing may be bought yet.
+const unpaidFirst = ev("evt_4a", "ord_4", { type: "checkout.session.completed", paid: false });
+await deliver(handle, unpaidFirst, rejections);
+const boughtUnpaid = provider.calls.length;
+// Then the payment succeeds. Exactly one purchase now.
+await deliver(handle, ev("evt_4b", "ord_4", { type: "checkout.session.async_payment_succeeded", paid: true }), rejections);
+const afterPaid = provider.calls.length;
+// Phase B, a second order: paid first, then a stale unpaid completed event. Still exactly one purchase.
+await deliver(handle, ev("evt_5a", "ord_5", { type: "checkout.session.async_payment_succeeded", paid: true }), rejections);
+await deliver(handle, ev("evt_5b", "ord_5", { type: "checkout.session.completed", paid: false }), rejections);</code></pre>
+<p>Run against the handler above, the report is:</p>
+<pre><code>FAIL  out-of-order — an unpaid completed event arrives before the payment succeeds, and again after it
+      observed: 1 purchase(s) while only an unpaid event had arrived, 2 after payment,
+                4 across both orders; final status "provisioned" / "provisioned"
+      expected: 0 purchases before payment, exactly 1 per order after it, both orders "provisioned"</code></pre>
+<p>Read the numbers slowly, because the last line hides the damage. Both orders end <code>provisioned</code>. Nothing threw. No status is wrong. Four items were bought for two orders.</p>
+<p>Phase A: the unpaid event arrives and the handler buys. If that bank debit fails three days later, the customer has the goods and you have the invoice. When the payment does succeed, the second event has a new id, the idempotency check waves it through, and the handler buys again. Two items, one payment.</p>
+<p>Phase B: the paid event arrives first and the handler buys, correctly. Then the completed event, delayed somewhere between Stripe and you, arrives carrying its snapshot of the session from before the money moved. New id. The handler buys again. Two items, one payment, this time triggered by an event that is telling the truth about the past.</p>
+<p>The idempotency store did exactly what it was built to do on all four deliveries. None of them was a duplicate.</p>
+<h2>Why the test suite passed</h2>
+<p>Three reasons, and they compound.</p>
+<p><strong>The fixtures were all cards.</strong> Every <code>checkout.session.completed</code> fixture had <code>payment_status: "paid"</code>, because that is what the Stripe CLI produces on a test account by default and it is what the developer saw in the Dashboard. No fixture had an unpaid completed event, so no test could show that fulfilling on it was wrong.</p>
+<p><strong>The tests delivered one event per order.</strong> A test that sends one event and asserts one purchase cannot say "the second event about this order must not buy again", and it cannot express order at all. Out-of-order is a property of a sequence, and the suite had no sequences.</p>
+<p><strong>The idempotency test proved the wrong thing.</strong> It sent the same event twice, asserted one purchase, and passed. That test is about redelivery. It says nothing about two different events that both look like a reason to fulfil. Passing it produced confidence that covered a case it never touched.</p>
+<h2>The fix: gate on the state, not the type</h2>
+<p>The order has exactly one transition that buys: paid, and not yet provisioned. Every event, of any type, in any order, either carries evidence of that state or it does not. The handler's first line becomes a question about the payment, and the event type stops mattering:</p>
+<pre><code>return async function handle(event) {
+  if (event.paid === false) return { kind: "unpaid" };       // gate on payment status, not event type
+  const c = claim(event.orderId);
+  if (c.kind !== "claimed") return c;                        // provisioned, or another attempt holds the lease
+  try {
+    const r = await provider.fulfil(event.orderId);
+    const w = settle(event.orderId, c.claimId, { status: "provisioned", r });
+    return w;
+  } catch (e) {
+    // ...mark failed only if nothing was bought; never swallow, let the retry happen
+    throw e;
+  }
+};</code></pre>
+<p>Trace the two phases through it. Unpaid completed first: <code>unpaid</code>, nothing bought. Paid event: the claim succeeds, one purchase, order provisioned. Paid event first: the same, one purchase. Stale unpaid completed afterwards: <code>unpaid</code>, nothing. Two orders, two purchases, and second-run's verdict on this version is one line: <code>PASS  out-of-order</code>.</p>
+<p>The claim is doing a second job here that is easy to miss. If two paid events about one order ever arrive, a retry of <code>async_payment_succeeded</code>, or a completed event that was paid because the card settled instantly followed by its own redelivery, the gate lets both through and the claim makes sure only one buys. The payment gate and the claim answer different questions: "should anything happen for this order yet?" and "is this attempt the one that gets to do it?" You need both.</p>
+<p>One refinement for a case the scenario does not cover. The event carries a snapshot of the session at the moment the event was created. If the paid event is lost entirely, a late unpaid completed event is the only news you will ever get, and its snapshot says unpaid. A handler that retrieves the session from Stripe at handling time and gates on the live <code>payment_status</code> fulfils correctly no matter which event brings the news and no matter how late. It costs one API call per event. For anything that ships goods or credits an account, it is worth it.</p>
+<h2>Five checks, one hour</h2>
+<ol>
+<li><strong>Find every place fulfilment is decided by <code>event.type</code>.</strong> For each, ask what happens when that event has <code>payment_status: "unpaid"</code>. If the answer is "it fulfils", that is this bug.</li>
+<li><strong>Grep your fixtures for <code>"unpaid"</code>.</strong> If nothing comes back, your suite has never seen a delayed payment method.</li>
+<li><strong>Look at what your idempotency key is.</strong> If it is the event id, it protects against redelivery only. The protection against two different events buying twice is the claim on the order, not the key.</li>
+<li><strong>Replay two real events reversed.</strong> From the Dashboard's webhook log, resend an <code>async_payment_succeeded</code> and then its <code>completed</code> event to a test endpoint. Count purchases.</li>
+<li><strong>Run the scenario.</strong> <code>node src/cli.js your-handler.js --only out-of-order</code> in a checkout of second-run reports what your handler actually did and can emit the regression test.</li>
+</ol>
+<h2>What this generalises to</h2>
+<p>Any system that receives its state as a stream of notifications has this shape: an order-status feed, a carrier's scan events, a payment processor's dispute lifecycle, a Kafka topic with at-least-once delivery and more than one partition. The notifications are true about the moment they were made. They are not promised to arrive in that order, and each one looks like a reason to act. The handler that survives this decides from the resource's state, takes a claim before acting, and treats the notification as a hint to go and look, not as the instruction itself.</p>
+<h2>The code</h2>
+<p>The scenario, the naive handler, and the fixed one: <strong>github.com/GG5533/second-run</strong>. The claim and settle pattern in full, with both storage backends and the fencing tests from the previous piece: <strong>github.com/GG5533/stripe-fulfilment-kit</strong>. Neither needs a Stripe account or a network to run.</p>
+<p><em>Sami Habbal fixes the failures that only show up on run number two. Charlotte, NC. <a href="https://github.com/GG5533">github.com/GG5533</a></em></p>
+  <div class="back" style="padding-top:2rem"><a href="/">← Back to the offer</a> · <a href="/a-lease-is-not-a-fence.html">Previous: A lease is not a fence</a> · <a href="https://github.com/GG5533/second-run">second-run on GitHub</a></div>
+</article>
+</div>
+</body>
+</html>
