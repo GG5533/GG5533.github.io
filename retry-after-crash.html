@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retry-after-crash: the second purchase — Sami Habbal</title>
+<meta name="description" content="A handler that is idempotent on paper buys twice when the process dies between the provider returning and the record being written. The reproduction, why suites miss it, the two-part fix, and five checks.">
+<meta property="og:title" content="Retry-after-crash: the second purchase">
+<meta property="og:description" content="A handler that is idempotent on paper buys twice when the process dies between the provider returning and the record being written. The reproduction, why suites miss it, the two-part fix, and five checks.">
+<meta property="og:type" content="article">
+<meta property="article:published_time" content="2026-09-14">
+<meta property="article:author" content="Sami Habbal">
+<link rel="canonical" href="https://gg5533.github.io/retry-after-crash.html">
+<meta property="og:url" content="https://gg5533.github.io/retry-after-crash.html">
+<meta property="og:site_name" content="Sami Habbal">
+<meta name="author" content="Sami Habbal">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --ink:#0C1116; --panel:#141B23; --line:#232E39;
+    --fg:#E8EDF2; --fg-dim:#94A3B1; --fg-faint:#5F6E7C;
+    --ok:#3FBF87; --warn:#E8A33D; --crit:#E8654D;
+    --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--ink);color:var(--fg);
+    font-family:var(--sans);font-size:17px;line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 1.5rem}
+  a{color:inherit}
+  section{padding:4rem 0;border-top:1px solid var(--line)}
+  section:first-of-type{border-top:0}
+
+  /* ---------- hero ---------- */
+  .hero{padding:5.5rem 0 4rem}
+  .status{
+    display:inline-flex;align-items:center;gap:.55rem;
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ok);
+    border:1px solid var(--line);border-radius:100px;
+    padding:.4rem .85rem;margin-bottom:1.75rem;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);
+       box-shadow:0 0 0 3px rgba(63,191,135,.15)}
+  h1{
+    font-size:clamp(2.1rem,6vw,3.6rem);line-height:1.05;
+    letter-spacing:-.03em;font-weight:700;margin:0 0 1.5rem;
+    text-wrap:balance;max-width:16ch;
+  }
+  .lede{font-size:clamp(1.05rem,2.4vw,1.25rem);color:var(--fg-dim);
+        max-width:60ch;margin:0 0 2.25rem}
+  .lede strong{color:var(--fg);font-weight:600}
+  .cta{
+    display:inline-block;background:var(--warn);color:#12171C;
+    font-weight:700;font-size:1rem;text-decoration:none;
+    padding:.9rem 1.6rem;border-radius:5px;
+    transition:transform .12s ease,filter .12s ease;
+  }
+  .cta:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .cta-note{font-family:var(--mono);font-size:.78rem;color:var(--fg-faint);
+            margin-top:.9rem}
+
+  h2{font-size:clamp(1.35rem,3vw,1.75rem);letter-spacing:-.02em;
+     font-weight:600;margin:0 0 .6rem;text-wrap:balance}
+  .sub{color:var(--fg-dim);margin:0 0 2rem;max-width:62ch}
+
+  /* ---------- failure list ---------- */
+  .fails{display:grid;gap:1px;background:var(--line);
+         border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .fail{background:var(--panel);padding:1.15rem 1.35rem;
+        display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start}
+  .sev{font-family:var(--mono);font-size:.65rem;font-weight:600;
+       letter-spacing:.08em;padding:.25rem .5rem;border-radius:3px;
+       white-space:nowrap;margin-top:.15rem}
+  .s-crit{background:rgba(232,101,77,.14);color:var(--crit)}
+  .s-warn{background:rgba(232,163,61,.14);color:var(--warn)}
+  .fail b{display:block;font-weight:600;margin-bottom:.15rem}
+  .fail span{color:var(--fg-dim);font-size:.94rem}
+
+  /* ---------- offer ---------- */
+  .offers{display:grid;gap:1rem;grid-template-columns:1fr}
+  @media(min-width:760px){.offers{grid-template-columns:repeat(3,1fr)}}
+  .offer{background:var(--panel);border:1px solid var(--line);
+         border-radius:6px;padding:1.5rem;display:flex;flex-direction:column}
+  .offer.lead{border-color:var(--warn)}
+  .offer .tag{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;
+              text-transform:uppercase;color:var(--fg-faint);margin-bottom:.7rem}
+  .offer.lead .tag{color:var(--warn)}
+  .offer h3{font-size:1.1rem;margin:0 0 .3rem;font-weight:600}
+  .price{font-family:var(--mono);font-size:1.3rem;font-weight:600;
+         margin:0 0 .8rem;color:var(--fg)}
+  .offer p{margin:0;color:var(--fg-dim);font-size:.93rem}
+
+  /* ---------- proof ---------- */
+  .proof{display:grid;gap:1rem;grid-template-columns:1fr}
+  @media(min-width:700px){.proof{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;
+        padding:1.4rem;text-decoration:none;display:block;
+        transition:border-color .15s ease}
+  .card:hover{border-color:var(--fg-faint)}
+  .card .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.09em;
+           text-transform:uppercase;color:var(--warn);margin-bottom:.5rem}
+  .card h3{margin:0 0 .45rem;font-size:1.02rem;font-weight:600}
+  .card p{margin:0;color:var(--fg-dim);font-size:.9rem}
+  .card .meta{font-family:var(--mono);font-size:.72rem;color:var(--fg-faint);
+              margin-top:.8rem}
+
+  blockquote{margin:0;padding:1.35rem 1.5rem;background:var(--panel);
+             border-left:2px solid var(--crit);border-radius:0 6px 6px 0;
+             color:var(--fg-dim);font-size:.97rem}
+  blockquote b{color:var(--fg)}
+
+  ol.how{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:1rem}
+  ol.how li{counter-increment:s;display:grid;grid-template-columns:auto 1fr;
+            gap:1rem;align-items:start}
+  ol.how li::before{content:counter(s);font-family:var(--mono);font-size:.78rem;
+    font-weight:600;color:var(--warn);border:1px solid var(--line);
+    width:1.9rem;height:1.9rem;display:grid;place-items:center;border-radius:4px}
+  ol.how b{display:block;font-weight:600}
+  ol.how span{color:var(--fg-dim);font-size:.94rem}
+
+  footer{padding:3.5rem 0 4.5rem;border-top:1px solid var(--line);
+         font-family:var(--mono);font-size:.82rem;color:var(--fg-faint)}
+  footer a{color:var(--warn);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  a:focus-visible,.cta:focus-visible{outline:2px solid var(--warn);
+    outline-offset:3px;border-radius:3px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>
+  article{max-width:72ch;margin:0 auto;padding:3.5rem 0 1rem}
+  article h1{max-width:none;font-size:clamp(1.9rem,5vw,2.9rem);margin-bottom:.6rem}
+  .subtitle{color:var(--fg-dim);font-size:1.12rem;margin:0 0 2.2rem;max-width:60ch}
+  .byline{font-family:var(--mono);font-size:.78rem;color:var(--fg-faint);margin-bottom:2.5rem}
+  article h2{margin-top:2.6rem}
+  article p{margin:0 0 1.1rem}
+  article a{color:var(--warn);text-decoration:none}
+  article a:hover{text-decoration:underline}
+  article code{font-family:var(--mono);font-size:.88em;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:.08em .35em}
+  article pre{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1rem 1.15rem;overflow-x:auto;font-size:.78rem;line-height:1.5;margin:0 0 1.3rem}
+  article pre code{background:none;border:0;padding:0;font-size:inherit}
+  article ul,article ol{padding-left:1.4rem;margin:0 0 1.2rem}
+  article li{margin-bottom:.45rem}
+  .tw{overflow-x:auto;margin:0 0 1.3rem;border:1px solid var(--line);border-radius:6px}
+  article table{border-collapse:collapse;width:100%;font-size:.9rem;background:var(--panel)}
+  article th,article td{text-align:left;padding:.6rem .8rem;border-bottom:1px solid var(--line);vertical-align:top}
+  article th{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-faint)}
+  article tbody tr:last-child td{border-bottom:0}
+  .back{font-family:var(--mono);font-size:.78rem;color:var(--fg-faint);padding:0 0 2rem}
+  .back a{color:var(--warn);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<article>
+  <div class="back"><a href="/">← Sami Habbal</a></div>
+  <h1>Retry-after-crash: the second purchase</h1>
+  <p class="subtitle">A handler that is idempotent on paper buys twice when the process dies between the provider returning and the record being written. The window is milliseconds wide, and it is where the money goes.</p>
+  <div class="byline">Sami Habbal · 14 September 2026 · Charlotte, NC</div>
+<p>A fulfilment handler does three things in order. It receives the event. It calls a provider to buy the thing the customer paid for, which takes seconds. It writes down that the purchase happened, and only then answers Stripe with a <code>200</code>. The order of the last two steps is not a choice: you cannot record the provider's answer before you have it.</p>
+<p>So there is always a moment after the provider has returned and before the record exists. If the process dies in that moment, two things are true at once. The item was bought. Nothing anywhere says so. Stripe never received a <code>200</code>, so it retries, and the retry arrives at a handler with no record of the purchase and no idempotency key to stop it. It buys again.</p>
+<p>This is not a race. Nothing runs concurrently. It is one crash at the wrong instant, and the instants that qualify are ordinary: a rolling deploy sending <code>SIGTERM</code> mid-request, an out-of-memory kill, a container restart, a request timeout that tears down the handler while it is still running.</p>
+<h2>The setup</h2>
+<p>The naive example in second-run again. It has the idempotency check, and the check is exactly where the problem is:</p>
+<pre><code>return async function handle(event) {
+  if (done.has(event.id)) return { kind: "duplicate" };
+  const r = await provider.fulfil(event.orderId);          // the expensive part
+  //  ← a crash here has bought the item and recorded nothing
+  orders.set(event.orderId, { status: "provisioned", r });
+  done.add(event.id);
+  return { kind: "provisioned" };
+};</code></pre>
+<p>The key is written last. It has to be, in this shape: writing it first would mark an event handled before the purchase, and a crash on the other side of the provider call would then lose the order entirely. Either way the record and the purchase are two writes to two systems, and a crash between them leaves them disagreeing.</p>
+<h2>The reproduction</h2>
+<p>second-run's retry-after-crash scenario arms a one-shot crash, delivers the event once, lets the crash happen after the provider call, advances the clock three minutes for Stripe's retry, and delivers the same event again:</p>
+<pre><code>const crashOnce = { armed: true };
+const handle = await build({ provider, clock, crashOnce, state });
+const event = ev("evt_2", "ord_2");
+try { await handle(event); } catch { /* the simulated crash: expected */ }
+clock.advance(3 * 60_000);
+await deliver(handle, event, rejections);
+const n = provider.calls.length;</code></pre>
+<p>Against the handler above:</p>
+<pre><code>FAIL  retry-after-crash — the first attempt crashes after the provider call, then Stripe retries
+      observed: 2 provider call(s), final status "provisioned"
+      expected: exactly 1 provider call, never a second purchase, final status "provisioned"</code></pre>
+<p>Look at what is right. The final status is <code>provisioned</code>. The customer gets their item. Every dashboard shows a healthy order. The only evidence of the bug is on the provider's invoice, where two purchases sit against one order, and in the provider's inventory, where an item nobody will ever be shown is now yours. In the system this pattern was extracted from, the items were eSIM profiles. A second profile bought and never delivered is not a rounding error; it is the whole margin on the order, gone silently.</p>
+<h2>Why the suite passed</h2>
+<p><strong>Process death is not an exception the tests can throw.</strong> A unit test can make the provider fail, and the suite had that: provider throws, handler records failure, retry works. What no test did was make the handler itself die after the provider had succeeded. There was no hook to die through, and nobody writes "throw after the third line" tests without one.</p>
+<p><strong>The window is too small for a load test to hit.</strong> A few milliseconds between two statements, in a request that takes seconds, under a test that restarts nothing. The probability per request is near zero. The probability across a year of deploys is not.</p>
+<p><strong>The outcome looks correct.</strong> Even a test that stumbled into it would have asserted on the order's status, seen <code>provisioned</code>, and passed. The assertion that catches this bug is on the provider's call count, and nobody asserts on the provider's call count unless a tool makes them.</p>
+<h2>The fix, in two parts</h2>
+<p><strong>First, shrink the window to the minimum the shape allows.</strong> The write of the provider's answer becomes the very next statement after the provider returns. Nothing awaited between them. No log line, no metric, no notification email, no second database call. Those all go after the record is durable. From the fixed example:</p>
+<pre><code>const r = await provider.fulfil(event.orderId);
+// Persist the provider's answer BEFORE anything else can fail. The window
+// between "provider returned" and "we wrote it down" is where a crash turns
+// a retry into a second purchase. second-run's retry-after-crash scenario
+// found exactly that in an earlier version of this file.
+const w = settle(event.orderId, c.claimId, { status: "provisioned", r });</code></pre>
+<p>That comment is a confession. The earlier version of that example did one more thing between the provider returning and the record being written. second-run crashed it there, the retry bought again, and the fix was to move one line. The tool found the bug in the file that was supposed to demonstrate the fix.</p>
+<p><strong>Second, make the purchase itself safe to repeat, because the window cannot be zero.</strong> However tight the code, the process can still die between the provider's response arriving and the write completing. The only thing that closes that gap is on the provider's side: an idempotency key on the purchase call, derived from the order id, so that a second call for the same order returns the first purchase instead of creating another. Stripe's own API accepts an <code>Idempotency-Key</code> header for exactly this reason, and most providers that sell anything have an equivalent, or a lookup-by-reference call you can make before buying. If yours has neither, the retry path after an expired claim should ask the provider what it already did before it does anything.</p>
+<p>The claim from the previous two pieces does a third job here. The first attempt claimed the order before buying. After the crash, that claim is still there, pending, with a lease. The retry sees <code>in_flight</code> until the lease expires. That is not the fix, since after expiry it would buy again, but it is the signal: an expired claim with no result recorded means "an attempt got as far as the provider and we do not know what happened." That state should route to the reconciliation path, not the purchase path.</p>
+<h2>Five checks, one hour</h2>
+<ol>
+<li><strong>Find the line that writes the provider's answer.</strong> Count the statements between the provider returning and that write. Every one of them, logging included, is part of the window. Move them after.</li>
+<li><strong>Ask your provider for an idempotency key on the purchase call.</strong> Pass the order id. Then call it twice in a test and assert on one purchase. If the provider has no such key, find the lookup-by-reference call and use it before every purchase that follows an expired claim.</li>
+<li><strong>Read your deploy.</strong> Does a rolling restart send <code>SIGTERM</code> to a process with a request in flight, and does the server drain before exiting? A handler that buys in three seconds and a shutdown grace of two seconds is this bug on a schedule.</li>
+<li><strong>Check what your handler does with an expired claim that has no result.</strong> If it buys, that is the residual window turned into a second purchase. Route it to a check with the provider first.</li>
+<li><strong>Run the scenario.</strong> <code>node src/cli.js your-handler.js --only retry-after-crash</code> in a checkout of second-run reports the provider call count, which is the number that matters.</li>
+</ol>
+<h2>What this generalises to</h2>
+<p>Any external side effect followed by a local write has the same window: send the email, then mark it sent; create the shipment, then store the tracking number; charge the card, then write the order. The crash between them produces a duplicate email, a duplicate shipment, a duplicate charge, and in every case the local record looks fine afterwards. The rule is the same each time. Write immediately after the effect with nothing in between, make the effect idempotent by reference on the far side, and treat "we started and do not know" as its own state with its own path.</p>
+<h2>The code</h2>
+<p>The scenario, the naive handler, and the fixed one, with the comment above still in it: <strong>github.com/GG5533/second-run</strong>. The claim and settle pattern with both storage backends: <strong>github.com/GG5533/stripe-fulfilment-kit</strong>. Neither needs a Stripe account or a network to run.</p>
+<p><em>Sami Habbal fixes the failures that only show up on run number two. Charlotte, NC. <a href="https://github.com/GG5533">github.com/GG5533</a></em></p>
+  <div class="back" style="padding-top:2rem"><a href="/">← Back to the offer</a> · <a href="/the-webhook-that-arrived-first.html">Previous: The webhook that arrived before the one it depended on</a> · <a href="/a-lease-is-not-a-fence.html">A lease is not a fence</a></div>
+</article>
+</div>
+</body>
+</html>

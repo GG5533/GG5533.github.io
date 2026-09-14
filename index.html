@@ -212,8 +212,14 @@
     </blockquote>
 
     <div class="proof" style="margin-top:1.25rem">
-      <a class="card" href="/the-webhook-that-arrived-first.html">
+      <a class="card" href="/retry-after-crash.html">
         <div class="k">Writing · new</div>
+        <h3>Retry-after-crash: the second purchase</h3>
+        <p>A handler that is idempotent on paper buys twice when the process dies between the provider returning and the record being written. The window is milliseconds wide. The reproduction, the two-part fix, and five checks.</p>
+        <div class="meta">Article · 14 Sept 2026 →</div>
+      </a>
+      <a class="card" href="/the-webhook-that-arrived-first.html">
+        <div class="k">Writing</div>
         <h3>The webhook that arrived before the one it depended on</h3>
         <p>Stripe does not promise to deliver events in order. A handler that decides from the event's type ships goods for payments that have not settled, and ships them again when the payment does. Reproduced, fixed, and five checks for your own handler.</p>
         <div class="meta">Article · 14 Sept 2026 →</div>
