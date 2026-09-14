@@ -6,7 +6,7 @@
 <title>Sami Habbal — AI systems that survive production</title>
 <meta name="description" content="I fix the failures that only appear once real traffic hits an AI feature: retries that double-charge, timeouts with no deadline, agent loops with no ceiling, AI spend with no cap.">
 <meta property="og:title" content="Sami Habbal — AI systems that survive production">
-<meta property="og:description" content="Retries that double-charge. Timeouts with no deadline. Agent loops with no ceiling. One bug reproduced, fixed and regression-tested — $250, fixed price.">
+<meta property="og:description" content="Retries that double-charge. Timeouts with no deadline. Agent loops with no ceiling. A written diagnosis within 48 hours for $250, then the fix with a test that fails without it.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://gg5533.github.io/">
 <meta property="og:url" content="https://gg5533.github.io/">
@@ -151,11 +151,12 @@
       deadline</strong>, <strong>loops without a ceiling</strong>, or quietly runs
       up a bill nobody capped.
       <br><br>
-      Send me one of those. I reproduce it, fix it, and hand back a test that
-      fails without the fix — fixed price, agreed before I start.
+      Send me one of those. Within 48 hours you get a written diagnosis: what is
+      happening, why, what it costs you, and what the fix involves. Then the fix,
+      quoted after the diagnosis, with a test that fails without it.
     </p>
-    <a class="cta" href="mailto:shabbal1@charlotte.edu?subject=One%20bug%2C%20fixed%20price">Fix one bug — $250, fixed price</a>
-    <div class="cta-note">Reproduced, patched, regression test, handed over · half up front</div>
+    <a class="cta" href="mailto:shabbal1@charlotte.edu?subject=Written%20diagnosis%20%E2%80%94%20%24250">Written diagnosis in 48 hours — $250</a>
+    <div class="cta-note">Paid on delivery · refunded if I can't reproduce it · fix quoted after, typically $600–1,200</div>
   </header>
 
   <section>
@@ -187,7 +188,8 @@
   <section>
     <h2>How it works</h2>
     <ol class="how">
-      <li><div><b>One bug — $250, fixed price</b><span>You name a failure. I reproduce it, patch it, and hand back a regression test that fails without the fix plus a written account of what was wrong. Half up front. If I can't reproduce it, you pay nothing and keep the write-up of what I ruled out.</span></div></li>
+      <li><div><b>Written diagnosis — $250, within 48 hours</b><span>You send the failing case: a workflow export, a repo, a log, a description of what happened. I reproduce it and send a written finding — what is happening, why, what it costs you if it keeps happening, and what fixing it involves. You own the document either way. If I can't reproduce it, I say so and refund it.</span></div></li>
+      <li><div><b>The fix — quoted after the diagnosis, typically $600–1,200</b><span>A bounded repair with a regression test that fails without it. Never quoted before the fault is reproduced, because anyone who quotes a repair before reproducing the fault is guessing at your expense.</span></div></li>
       <li><div><b>Sprint — $1,500–3,000</b><span>When one bug turns out to be a class of them. Scope written down before I start; everything ships with tests.</span></div></li>
       <li><div><b>Stay — fractional, ongoing</b><span>For teams shipping AI features faster than they can make them reliable. I own that part so your engineers don't context-switch into it.</span></div></li>
     </ol>
@@ -210,6 +212,24 @@
     </blockquote>
 
     <div class="proof" style="margin-top:1.25rem">
+      <a class="card" href="https://github.com/GG5533/second-run">
+        <div class="k">Open source · new</div>
+        <h3>second-run</h3>
+        <p>Fires the failures that only show up on run number two at your webhook handler — duplicate deliveries, crashes before and after the purchase, a late write after a lease expired, out-of-order events — and reports what it actually did. Emits a regression test you keep.</p>
+        <div class="meta">Five scenarios · 20 tests · zero dependencies · MIT →</div>
+      </a>
+      <a class="card" href="https://github.com/circlefin/arc-node/issues/361">
+        <div class="k">Confirmed by another contributor</div>
+        <h3>circlefin/arc-node #361</h3>
+        <p>A panicking task bypasses the new SIGTERM handover, costing the exit code, the drain window and teardown. An outside contributor re-derived it independently and wrote that it held. I retracted two of my own claims in the same thread when measurement said I was wrong.</p>
+        <div class="meta">Rust · Sept 2026 →</div>
+      </a>
+      <a class="card" href="https://github.com/agentscope-ai/agentscope-java/issues/3059">
+        <div class="k">Confirmed by the project</div>
+        <h3>agentscope-java #3059</h3>
+        <p>Narrowed a reported bug to the one middleware that still blocks stream completion and showed the other two no longer reproduce on main. The project's collaborator reached the same split three days later.</p>
+        <div class="meta">Java · Sept 2026 →</div>
+      </a>
       <a class="card" href="https://github.com/GG5533/stripe-fulfilment-kit/blob/main/CASE-STUDY.md">
         <div class="k">Case study</div>
         <h3>How 78 tests missed a fencing bug</h3>
@@ -262,13 +282,14 @@
     <h2>Worth knowing before you email</h2>
     <p class="sub">
       If I don't think you have a problem worth paying to fix, I'll tell you and
-      you'll have spent nothing. The first fix is deliberately cheap because it
+      you'll have spent nothing. The diagnosis comes first and is priced as the
+      two-to-three-hour job it is, because it
       should be an easy decision — and because you should be able to judge the
       work on one small piece of it before trusting me with anything larger.
       If I can't reproduce your bug, I refund the deposit and send you what I
       ruled out.
     </p>
-    <a class="cta" href="mailto:shabbal1@charlotte.edu?subject=One%20bug%2C%20fixed%20price">Fix one bug — $250, fixed price</a>
+    <a class="cta" href="mailto:shabbal1@charlotte.edu?subject=Written%20diagnosis%20%E2%80%94%20%24250">Written diagnosis in 48 hours — $250</a>
     <div class="cta-note">Or just describe what's breaking. shabbal1@charlotte.edu</div>
   </section>
 
